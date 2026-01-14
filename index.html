@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>けいもん司法書士問題集</title>
+<style>
+body{font-family:sans-serif;background:#f5f5f5;padding:10px;margin:0;touch-action:manipulation}
+.hidden{display:none}
+.card{background:#fff;padding:15px;border-radius:12px;max-width:600px;margin:auto;box-shadow: 0 2px 8px rgba(0,0,0,0.1);min-height: 92vh; display: flex; flex-direction: column;}
+button{padding:12px;margin:5px;cursor:pointer;border:1px solid #ccc;border-radius:8px;font-size:16px}
+select{padding:12px;margin:5px;width:95%;font-size:16px; border: 1px solid #ccc; border-radius: 8px; background: #fff;}
+table{border-collapse:collapse;margin-top:10px;width:100%;font-size:12px}
+th,td{border:1px solid #ccc;padding:8px;text-align:center}
+
+.progress-container {width: 100%; background: #eee; border-radius: 10px; margin: 15px 0;}
+.progress-bar {height: 8px; background: #4caf50; width: 0%; border-radius: 10px; transition: width 0.3s;}
+
+.fav-btn { float: right; font-size: 1.8em; border: none; background: none; padding: 0; margin-top: -5px;}
+.fav-active { color: #ffca28; }
+.fav-inactive { color: #ccc; }
+
+.ans-box { display: flex; justify-content: space-between; margin: 20px 0; }
+.ans-btn { width: 48%; padding: 20px; font-weight: bold; font-size: 1.2em; border: none; border-radius: 12px; color: #333; }
+
+#result{font-weight:bold;font-size:1.3em;text-align:center;margin-bottom:10px}
+#explain{background:#f9f9f9;padding:15px;border-left:5px solid #4caf50;white-space: pre-wrap; line-height: 1.6; font-size: 0.95em; color: #333;}
+
+.btn-primary { background: #007bff; color: white; border: none; width: 100%; margin-top: 10px;}
+.btn-accent { background: #fff; width: 46%; }
+.btn-all { background: #6f42c1; color: white; border: none; width: 100%; margin-top: 15px; font-weight: bold;}
+</style>
+</head>
+<body>
+
+<div class="card" id="home">
+    <h2 style="text-align:center; margin: 10px 0;">📚 けいもん問題集</h2>
+    
+    <div style="overflow-x: auto;">
+        <table id="summary"></table>
+    </div>
+
+    <div style="margin-top:20px; border: 1px solid #eee; padding: 15px; border-radius: 12px; background: #fafafa;">
+        <strong>【科目・単元を選択】</strong><br>
+        <select id="bigSelect"></select>
+        <select id="smallSelect"></select>
+        <label style="display:block; margin: 12px 5px;"><input type="checkbox" id="shuffleCheck"> 問題をシャッフルする</label>
+        <button onclick="startQuiz()" class="btn-primary">選択した単元を開始</button>
+    </div>
+
+    <div style="margin-top:15px; text-align: center; flex-grow: 1;">
+        <button onclick="startAllRandom()" class="btn-all">🔥 全科目からランダム出題</button><br>
+        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+            <button onclick="reviewWrong()" class="btn-accent">❌ 解き直し</button>
+            <button onclick="reviewFav()" class="btn-accent">★ 付箋のみ</button>
+        </div>
+    </div>
+</div>
+
+<div class="card hidden" id="quiz">
+    <div>
+        <button id="favBtn" class="fav-btn" onclick="toggleFav()">☆</button>
+        <div id="qBig" style="font-size:12px; color:#666"></div>
+        <div id="qSmall" style="font-weight:bold; margin-bottom:5px"></div>
+        <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
+    </div>
+    <hr>
+    <div style="flex-grow: 1;">
+        <p id="question" style="font-size:1.15em; line-height:1.5; min-height: 80px; margin: 15px 0;"></p>
+
+        <div class="ans-box">
+            <button onclick="answer(true)" class="ans-btn" style="background:#e3f2fd">◯ 正しい</button>
+            <button onclick="answer(false)" class="ans-btn" style="background:#fbe9e7">× 誤り</button>
+        </div>
+
+        <div id="result"></div>
+        <div id="explainContainer" class="hidden">
+            <div id="explain"></div>
+            <br>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content: space-between; margin-top: 20px; padding-bottom: 10px;">
+        <button onclick="prev()" style="width:30%">←前</button>
+        <button onclick="next()" style="width:30%">次→</button>
+        <button onclick="goHome()" style="width:30%">戻る</button>
+    </div>
+</div>
+
+<script>
+const data = {
+ "民法":{"総則":[],"物権":[],"担保物権":[],"債権総論":[],"債権各論":[],"親族":[],"相続":[]},
+ "不動産登記法":{"所有権に関する登記":[],"抵当権に関する登記":[],"根抵当権に関する登記":[],"登記請求権の保全に関する登記":[],"その他の登記":[],"不動産登記総論":[]},
+ "会社法・商法":{"設立":[],"株式":[],"機関":[],"新株予約権":[],"計算":[],"解散":[],"組織再編等":[],"社債":[],"持分会社":[],"その他":[],"特例有限会社":[],"商法総則":[]},
+ "商業登記法":{"会社":[],"商法":[],"商業登記総論":[],"法人登記":[]},
+ "憲法":{"人権":[],"統治":[]},
+ "刑法":{"総論":[],"各論":[]},
+ "民事訴訟法":{"訴えの提起及び審理":[],"複雑訴訟及び略式訴訟手続":[]},
+ "民事執行法":{"総論":[]},
+ "民事保全法":{"総論":[]},
+ "司法書士法":{"総論":[]},
+ "供託法":{"総論":[]}
+};
+
+// --- 問題データ登録（原文ママ） ---
+data["民法"]["総則"].push({q:"意思表示は相手に到達しなければ効力を生じない。",a:true,ex:"ここに解説"});
+data["会社法・商法"]["商法総則"].push({q:"支配人が商人の許可を受けないで自ら営業を行ったときは、当該営業によって自己が得た利益の額は、商人に生じた損害の額と推定される。", a:false, ex:"支配人は、商人の許可を得なければ、自己又は第三者のためにその商人の営業の部類に属する取引をすることはできない（商23条1項2号）。そして、支配人が、商人の許可を得ずに、商法23条1項2号に掲げる行為をしたときは、当該行為によって支配人又は第三者が得た利益の額は、商人に生じた損害の額と推定する（商23条2項）。しかし、支配人が商人の許可を受けないで自ら営業を行った（商23条1項1号）ときは、当該推定はない。"});
+data["会社法・商法"]["その他"].push({q:"株主総会の決議の内容が定款に違反するとして株主総会決議の取消しの訴えの提起があった場合において、裁判所は、その違反する事実が重大でなく、かつ、決議に影響を及ぼさないものであると認めるときは、その請求を棄却することができる。", a:false, ex:"株主総会等の決議の取消しの訴えの提起があった場合において、株主総会等の招集の手続又は決議の方法が法令又は定款に違反するときであっても、裁判所は、その違反する事実が重大でなく、かつ、決議に影響を及ぼさないものであると認めるときは、その請求を棄却することができる（会831条2項、裁判所の裁量棄却）。本問のように、「決議の内容」に瑕疵がある場合には認められない。"});
+data["民事訴訟法"]["複雑訴訟及び略式訴訟手続"].push({q:"数人に対する一の訴えについては、訴訟の目的である権利又は義務が同種であって事実上及び法律上同種の原因に基づくときは、一の請求について管轄権を有する裁判所にその訴えを提起することができる。", a:false, ex:"一の訴えで数人に対する請求をしようとする場合において、訴訟の目的である権利又は義務が数人について共通であるとき、又は同一の事実上及び法律上の原因に基づくとき（民訴38条前段）は、管轄に関する民事訴訟法の規定（民訴4条～6条の2）により、一の請求について管轄権を有する裁判所に当該訴えを提起することができる（民訴7条）。「訴訟の目的である権利又は義務が同種であって事実上及び法律上同種の原因に基づくとき」は、民事訴訟法38条後段に規定する場合であるため、一の請求について管轄権を有する裁判所に当該訴えを提起することはできない。"});
+data["民法"]["親族"].push({q:"未成年者に対して最後に親権を行う者であっても、管理権を有しない場合には、遺言で未成年後見人を指定することはできない。", a:true, ex:"未成年者に対して最後に親権を行う者は、遺言で、未成年後見人を指定することができる（民839条1項本文）が、管理権を有しない者は未成年後見人を指定する者から除かれている（民839条1項ただし書)。"});
+data["民法"]["物権"].push({q:"Ａの所有する甲動産を買い受け、引渡しを受けたＢが、債務不履行を理由にその売買契約を解除されたが、Ａに甲動産の引渡しをしないまま、これをＣに売却し、Ｃに現実の引渡しをした場合には、Ｃは、Ｂが所有者であると信じ、かつ、そう信じるにつき過失のないときに限り、甲動産の所有権を取得することができる。", a:false, ex:"動産に関する物権の譲渡の対抗要件は引渡しである（民178条）とされるが、この規定にいう「譲渡」には、所有権の譲渡のみならず、取消しや解除による権利の復帰も含まれる。すると、本肢の場合は、Ｂを基点とするＣ・Ａへの二重譲渡となり、対開問題として処理されることになるため、Ｃは善意無過失でなくとも、対抗要件である動産の引渡しを先に受けられれば、甲動産の所有権を取得することができる。"});
+
+// --- ロジック ---
+let big="",small="",list=[],i=0,wrong=[];
+const bigSel=document.getElementById('bigSelect');
+const smallSel=document.getElementById('smallSelect');
+
+for(let b in data) bigSel.innerHTML += `<option>${b}</option>`;
+bigSel.onchange=()=>{
+    smallSel.innerHTML="";
+    for(let s in data[bigSel.value]) smallSel.innerHTML+=`<option>${s}</option>`;
+};
+bigSel.dispatchEvent(new Event("change"));
+
+function k(b,s,q){return "keimon_"+b+"_"+s+"_"+q.q;}
+function load(b,s,q){return JSON.parse(localStorage.getItem(k(b,s,q)))||{ok:0,ng:0,fav:false};}
+function save(b,s,q,c){
+    let r=load(b,s,q);
+    if(c !== null) { if(c) r.ok++; else r.ng++; }
+    localStorage.setItem(k(b,s,q),JSON.stringify(r));
+}
+
+function buildSummary(){
+    const summary = document.getElementById('summary');
+    summary.innerHTML="<tr><th>法律</th><th>問題</th><th>正答率</th></tr>";
+    for(let b in data){
+        let total=0,ok=0,ng=0;
+        for(let s in data[b]){
+            data[b][s].forEach(q=>{
+                total++; const r=load(b,s,q); ok+=r.ok; ng+=r.ng;
+                q.b = b; q.s = s; 
+            });
+        }
+        const rate=(ok+ng)?Math.round(ok/(ok+ng)*100)+"%":"-";
+        summary.innerHTML+=`<tr><td>${b}</td><td>${total}</td><td>${rate}</td></tr>`;
+    }
+}
+
+function startQuiz(){
+    big=bigSel.value; small=smallSel.value;
+    list=[...data[big][small]];
+    if(list.length===0){alert("この単元にはまだ問題がありません");return;}
+    if(document.getElementById('shuffleCheck').checked) list.sort(()=>Math.random()-0.5);
+    i=0; wrong=[]; show();
+}
+
+function startAllRandom(){
+    list = [];
+    for(let b in data) for(let s in data[b]) data[b][s].forEach(q=>{ list.push(q); });
+    if(list.length===0){alert("問題が登録されていません");return;}
+    list.sort(()=>Math.random()-0.5);
+    big="全科目"; small="ランダム"; i=0; wrong=[]; show();
+}
+
+function show(){
+    buildSummary();
+    document.getElementById('home').classList.add("hidden");
+    document.getElementById('quiz').classList.remove("hidden");
+    const q=list[i];
+    document.getElementById('qBig').innerText = q.b || big; 
+    document.getElementById('qSmall').innerText = q.s || small;
+    document.getElementById('question').innerText=(i+1)+" / "+list.length+"　"+q.q;
+    document.getElementById('progressBar').style.width = ((i+1)/list.length*100) + "%";
+    
+    const r = load(q.b||big, q.s||small, q);
+    const fBtn = document.getElementById('favBtn');
+    fBtn.className = r.fav ? "fav-btn fav-active" : "fav-btn fav-inactive";
+    fBtn.innerText = r.fav ? "★" : "☆";
+
+    document.getElementById('result').innerText="";
+    document.getElementById('explainContainer').classList.add("hidden");
+    window.scrollTo(0,0);
+}
+
+function answer(ans){
+    const q=list[i]; const isCorrect = (ans === q.a);
+    save(q.b||big, q.s||small, q, isCorrect);
+    const resElem = document.getElementById('result');
+    resElem.innerText = isCorrect ? "⭕ 正解！" : "❌ 不正解";
+    resElem.style.color = isCorrect ? "blue" : "red";
+    if(!isCorrect && !wrong.includes(q)) wrong.push(q);
+    document.getElementById('explain').innerText = q.ex;
+    document.getElementById('explainContainer').classList.remove("hidden");
+}
+
+function toggleFav(){
+    const q=list[i]; let r=load(q.b||big, q.s||small, q);
+    r.fav = !r.fav;
+    localStorage.setItem(k(q.b||big, q.s||small, q), JSON.stringify(r));
+    show();
+}
+
+function reviewFav(){
+    list = [];
+    for(let b in data) for(let s in data[b]) data[b][s].forEach(q=>{ if(load(b,s,q).fav) list.push(q); });
+    if(!list.length){alert("付箋をつけた問題はありません");return;}
+    big="付箋"; small="まとめ"; i=0; show();
+}
+
+function reviewWrong(){
+    if(!wrong.length){alert("解き直す問題がありません");return;}
+    list=[...wrong]; big="解き直し"; i=0; show();
+}
+
+function next(){if(i<list.length-1){i++;show();}}
+function prev(){if(i>0){i--;show();}}
+function goHome(){document.getElementById('quiz').classList.add("hidden");document.getElementById('home').classList.remove("hidden");buildSummary();}
+buildSummary();
+</script>
+</body>
+</html>
